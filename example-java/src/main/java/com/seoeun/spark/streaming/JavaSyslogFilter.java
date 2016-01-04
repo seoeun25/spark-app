@@ -15,16 +15,16 @@ import java.io.Serializable;
 import java.util.Arrays;
 
 /**
- * To run, bin/spark-submit --class com.seoeun.spark.streaming.JavaNetworkWordCount --master local[4] example-java-0.9-SNAPSHOT.jar.
+ * To run, bin/spark-submit --class com.seoeun.spark.streaming.JavaSyslogFilter --master local[4] example-java-0.9-SNAPSHOT.jar.
  *
  * $ nc -lk 9999
  * hello world
  *
  */
-public class JavaNetworkWordCount implements Serializable{
+public class JavaSyslogFilter implements Serializable{
 
 
-    public JavaNetworkWordCount() {
+    public JavaSyslogFilter() {
 
     }
 
@@ -55,9 +55,8 @@ public class JavaNetworkWordCount implements Serializable{
             }
         });
 
-        words.print();
-        pairs.print();
-        //wordCounts.print();
+        System.out.println("---- time : " + System.currentTimeMillis() + " ----");
+        wordCounts.print();
 
     }
 
@@ -70,7 +69,7 @@ public class JavaNetworkWordCount implements Serializable{
 
         JavaStreamingContext javaStreamingContext = new JavaStreamingContext(conf, Durations.seconds(10));
 
-        JavaNetworkWordCount javaNetworkWordCount = new JavaNetworkWordCount();
+        JavaSyslogFilter javaNetworkWordCount = new JavaSyslogFilter();
         javaNetworkWordCount.readStream(javaStreamingContext);
 
         javaStreamingContext.start();
