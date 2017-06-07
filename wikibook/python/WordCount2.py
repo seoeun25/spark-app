@@ -29,3 +29,4 @@ if __name__ == "__main__":
     resultRdd.saveAsTextFile(sys.argv[3])
     sc.stop()
 
+## spark-submit wikibook/src/main/python/WordCount2.py local[*] file:///usr/lib/spark/README.md ~/spark-out/c

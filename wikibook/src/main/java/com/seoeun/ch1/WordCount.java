@@ -106,5 +106,7 @@ public class WordCount {
         return result;
 
     }
+    // spark-submit --class com.seoeun.ch1.scala.WordCount1 deploy/wikibook.jar local[*] /usr/lib/spark/README.md ~/spark-out/a
+
 
 }
