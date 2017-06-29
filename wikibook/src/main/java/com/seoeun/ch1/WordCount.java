@@ -14,6 +14,10 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 /**
+ * To execute,
+ * <p>
+ *     spark-submit --class com.seoeun.ch1.WordCount target/wikibook-0.9-SNAPSHOT.jar local[*] /usr/lib/spark/README.md java-out
+ * </p>
  * @author seoeun
  * @since ${VERSION} on 6/5/17
  */

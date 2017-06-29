@@ -2,6 +2,8 @@ from pyspark import SparkContext, SparkConf
 
 import sys
 
+## cd wikibook/python
+## spark-submit WordCount2.py local[*] /usr/lib/spark/README.md py-out
 class WordCount2:
     def getSparkContext(self, appName, master):
         print(appName)
