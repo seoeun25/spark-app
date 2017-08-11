@@ -16,7 +16,11 @@ import java.util.Iterator;
 /**
  * To execute,
  * <p>
- *     spark-submit --class com.seoeun.ch1.WordCount target/wikibook-0.9-SNAPSHOT.jar local[*] /usr/lib/spark/README.md java-out
+ *     $ spark-submit --class com.seoeun.ch1.WordCount target/wikibook-0.9-SNAPSHOT.jar local[*] /usr/lib/spark/README.md java-out
+ * </p>
+ * <p>
+ *     $ spark-submit --class com.seoeun.ch1.WordCount --master yarn --deploy-mode client \
+ *       deploy/original-wikibook.jar yarn hdfs://sembp:8020/sample/README.md hdfs://sembp:8020/sample/out
  * </p>
  * @author seoeun
  * @since ${VERSION} on 6/5/17
