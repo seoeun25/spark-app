@@ -23,6 +23,7 @@
 
     <modules>
         <module>wikibook</module>
+        <module>wasp-app</module>
     </modules>
 
     <dependencyManagement>
