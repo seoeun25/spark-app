@@ -6,7 +6,7 @@ from pyspark import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 
-# spark-submit wikibook/src/main/python/similarities.py azra brook01.table
+# spark-submit wasp-app/src/main/python/similarities.py azra brook01.table
 
 def dataLoad(spark, locale="ko-KR"):
     #queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity WHERE locale='{}'" \
@@ -14,7 +14,7 @@ def dataLoad(spark, locale="ko-KR"):
 
     queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity WHERE locale='{}'" \
                " and " \
-               "content_id IN (1, 2, 3) ".format(locale)
+               "content_id IN (1, 2, 260) ".format(locale)
 
     print(queryStr)
     df_load = spark.sql(queryStr)
@@ -72,7 +72,7 @@ def data_cal_info(item_dic):
         score = 0
         for person in item_dic[item]:
             if item_dic[item][person] >= 10:
-                print("---- max10. item= {}, persion={}".format(item, person))
+                #print("---- max10. item= {}, persion={}".format(item, person))
                 score += 10
             else:
                 score += item_dic[item][person]
@@ -98,27 +98,46 @@ def data_cal_table(user_dic, item_dic):
         for other in item_dic:
             if item != other:
                 result[item][other] = 0
+                print("00 == result[{}][{}] = {}".format(item, other, result[item][other]))
 
-    print("--- user_dic len = {}".format(user_dic.__len__()))
+    print("--- data_cal_table. item_dic len = {}".format(item_dic.__len__()))
+    print("--- data_cal_table .user_dic len = {}".format(user_dic.__len__()))
+
+    #for item in result:
+        #print("type = {}".format(type(item)))
+        #print("item = {}".format(item))
+
 
     for user in user_dic:
         #print("--- user in user_dic = {}".format(user))
         # 중복없는 조합을 만들어서 계산량을 최소화 (ver1은 3시간 -> 현재 ver7은 10분)
+        #print("user = {}".format(user))
+        #print("items = {}".format(user_dic[user].keys()))
+
         for tup in itertools.combinations(user_dic[user].keys(), 2):
             (item, other) = tup
+            print("user={} item={}, other={}".format(user, item, other))
             # 중복없는 조합이기 때문에 한 번에 쌍으로 저장
             # 구매건수 10건 이상은 10점으로 처리
             if user_dic[user][item] >= 10:
                 result[item][other] += 10
+                print("    [{}][{}] = {}".format(item, other, result[item][other]))
             else:
                 result[item][other] += user_dic[user][item]
+                print("    [{}][{}] = {}".format(item, other, result[item][other]))
             if user_dic[user][other] >= 10:
                 result[other][item] += 10
+                print("    [{}][{}] = {}".format(other, item, result[other][item]))
             else:
                 result[other][item] += user_dic[user][other]
+                print("    [{}][{}] = {}".format(other, item, result[other][item]))
     end_time = time.time()
     print('---- data_cal_table', int(end_time - start_time), 'sec')
     print("---- result = {}".format(result.keys().__len__()))
+
+    #for item in result:
+    #    print("type = {}".format(type(item)))
+    #    print("item = {}".format(item))
 
     return result
 
@@ -130,6 +149,9 @@ def data_cal_sim(table_dic, info_dic):
         a_score = info_dic[item]
         for other in table_dic[item]:
             b_score = info_dic[other]
+            print("table_dic[{}][{}] = {}".format(item, other, table_dic[item][other]))
+            print("table_dic[{}][{}] = {}".format(other, item, table_dic[other][item]))
+
             ab_score = table_dic[item][other] + table_dic[other][item]
             score = float(ab_score) / (a_score + b_score)
             result.setdefault(item, {})

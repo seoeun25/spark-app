@@ -8,7 +8,7 @@ from pyspark.sql.types import *
 from pyspark.sql import functions
 #from pyspark.sql import functions as F
 
-# spark-submit wikibook/src/main/python/similarities.py azra brook01.table
+# spark-submit wasp-app/src/main/python/similarities2.py azra brook01.table
 
 def dataLoad(spark, locale="ko-KR"):
     """
@@ -52,8 +52,11 @@ def dataLoad(spark, locale="ko-KR"):
     dfUser2 = dfUser.groupby("user_id").agg(functions.collect_list("cmap").alias("content_map"))
     dfUser2.show()
 
-    dfUserDic = df_load.groupby("user_id").agg(functions.collect_list("content_id").alias("content_ids"),
-                                               functions.collect_list("purchase_cnt").alias("purchases"))
+    print(" --- dfUser2 = {}".format(dfUser2.count()))
+
+
+    #dfUserDic = df_load.groupby("user_id").agg(functions.collect_list("content_id").alias("content_ids"),
+    #                                           functions.collect_list("purchase_cnt").alias("purchases"))
 
     #rdd = dfUserDic.rdd()
     #print(" --- rdd = {}".format(rdd))
@@ -143,7 +146,7 @@ def data_cal_table(user_df, info_df):
 
     for user in user_dic:
         print(" --- user in user_dic = {}".format(user))
-        print(" --- user in user_dic = {}".format(user.content_map))
+        print(" --- user.content_map in user_dic = {}".format(user.content_map))
 
         # 중복없는 조합을 만들어서 계산량을 최소화 (ver1은 3시간 -> 현재 ver7은 10분)
         for tup in itertools.combinations(user.content_map, 2):
@@ -151,8 +154,7 @@ def data_cal_table(user_df, info_df):
             print(type(item))
             print(type(tup))
             print(" --- item = {}, ".format(item))
-
-            print(" --- other = {}, other_id = {}".format(other, other[key]))
+            print(" --- other = {}, ".format(other))
 
             for key,val in tup:
                 print(key, "=>", val)
@@ -271,12 +273,12 @@ if __name__ == "__main__":
     print(sys.argv)
     print(sys.argv.__len__())
     if len(sys.argv) != 3:
-        print("Error usage: LoadHive [sparkmaster] [inputtable]")
+        print("Error usage: LoadHive [sparkmaster] [ymd]")
         sys.exit(-1)
     master = sys.argv[1]
-    inputTable = sys.argv[2]
+    ymd = sys.argv[2]
     print("master: %s", master)
-    print("inputTable:%s", inputTable)
+    print("ymd:%s", ymd)
 
     # We have to set the hive metastore uri.
     hiveMetastore = "thrift://azra:9083"
