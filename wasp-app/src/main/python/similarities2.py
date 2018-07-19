@@ -151,26 +151,23 @@ def data_cal_table(user_df, info_df):
         # 중복없는 조합을 만들어서 계산량을 최소화 (ver1은 3시간 -> 현재 ver7은 10분)
         for tup in itertools.combinations(user.content_map, 2):
             (item, other) = tup
+            """
             print(type(item))
             print(type(tup))
             print(" --- item = {}, ".format(item))
             print(" --- other = {}, ".format(other))
-
-            for key,val in tup:
-                print(key, "=>", val)
-            print(" --- item_id = {}".format(item, item[key]))
-
+            """
 
             # 중복없는 조합이기 때문에 한 번에 쌍으로 저장
             # 구매건수 10건 이상은 10점으로 처리
-            if user_df[user][item] >= 10:
+            if user_dic[user][item] >= 10:
                 result[item][other] += 10
             else:
-                result[item][other] += user_df[user][item]
-            if user_df[user][other] >= 10:
+                result[item][other] += user_dic[user][item]
+            if user_dic[user][other] >= 10:
                 result[other][item] += 10
             else:
-                result[other][item] += user_df[user][other]
+                result[other][item] += user_dic[user][other]
     end_time = time.time()
     print('---- data_cal_table', int(end_time - start_time), 'sec')
     print("---- result = {}".format(result.keys().__len__()))

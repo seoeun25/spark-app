@@ -2,6 +2,10 @@ import itertools
 import sys
 import time
 
+import pandas as pd
+import numpy as np
+
+
 from pyspark import SparkContext
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
@@ -14,9 +18,9 @@ def dataLoad(spark, locale="ko-KR"):
 
     queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity WHERE locale='{}'" \
                " and " \
-               "content_id IN (1, 2, 260) ".format(locale)
+               "content_id IN (1, 2, 3, 4) ".format(locale)
 
-    print(queryStr)
+    print("  ===  {} ".format(queryStr))
     df_load = spark.sql(queryStr)
     # df_load = spark.sql('select user_id, content_id, locale, adult, purchase_cnt from
     # actdb.purchase_count_similarity limit 10')
@@ -135,9 +139,9 @@ def data_cal_table(user_dic, item_dic):
     print('---- data_cal_table', int(end_time - start_time), 'sec')
     print("---- result = {}".format(result.keys().__len__()))
 
-    #for item in result:
-    #    print("type = {}".format(type(item)))
-    #    print("item = {}".format(item))
+    for item in result:
+        print("item in result = {}".format(item))
+        print("item[] in result = {}".format(result[item]))
 
     return result
 
@@ -149,8 +153,8 @@ def data_cal_sim(table_dic, info_dic):
         a_score = info_dic[item]
         for other in table_dic[item]:
             b_score = info_dic[other]
-            print("table_dic[{}][{}] = {}".format(item, other, table_dic[item][other]))
-            print("table_dic[{}][{}] = {}".format(other, item, table_dic[other][item]))
+            #print("table_dic[{}][{}] = {}".format(item, other, table_dic[item][other]))
+            #print("table_dic[{}][{}] = {}".format(other, item, table_dic[other][item]))
 
             ab_score = table_dic[item][other] + table_dic[other][item]
             score = float(ab_score) / (a_score + b_score)
@@ -161,13 +165,19 @@ def data_cal_sim(table_dic, info_dic):
     print('---- data_cal_sim', int(end_time - start_time), 'sec')
     print("---- result = {}".format(result.keys().__len__()))
 
+    for item in result:
+        print("item in data_cal_sim = {} = {}".format(item, result[item]))
+
+
     return result
 
 #정규화
 def get_scale(df_set):
     for col in df_set.columns:
+        print("col = {}, {}".format(col, df_set[col]))
         df_set[col]=(df_set[col] - df_set[col].min()) / (df_set[col].max() - df_set[col].min())
     for idx in df_set.index:
+        print("idx = {}, {}".format(idx, df_set.ix[idx]))
         df_set.ix[idx]=(df_set.ix[idx] - df_set.ix[idx].min()) / (df_set.ix[idx].max() - df_set.ix[idx].min())
     print('get_scale')
     return df_set
@@ -226,9 +236,13 @@ if __name__ == "__main__":
     ])
 
     #데이터프레임 생성
-    #df_set=pd.DataFrame.from_dict(sim_dic)
-    #df_set=df_set.fillna(0)
-    #df_set=get_scale(df_set)
+    df_set=pd.DataFrame.from_dict(sim_dic)
+    print("== dfs_set = {}".format(df_set))
+    for item in df_set:
+        print("--- dfset item = {} = {}".format(item, df_set[item]))
+
+    df_set=df_set.fillna(0)
+    df_set=get_scale(df_set)
 
 
     print("Done!")
