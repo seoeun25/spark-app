@@ -102,7 +102,6 @@ def data_cal_table(user_dic, item_dic):
         for other in item_dic:
             if item != other:
                 result[item][other] = 0
-                print("00 == result[{}][{}] = {}".format(item, other, result[item][other]))
 
     print("--- data_cal_table. item_dic len = {}".format(item_dic.__len__()))
     print("--- data_cal_table .user_dic len = {}".format(user_dic.__len__()))
@@ -125,23 +124,22 @@ def data_cal_table(user_dic, item_dic):
             # 구매건수 10건 이상은 10점으로 처리
             if user_dic[user][item] >= 10:
                 result[item][other] += 10
-                print("    [{}][{}] = {}".format(item, other, result[item][other]))
+                #print("    [{}][{}] = {}".format(item, other, result[item][other]))
             else:
                 result[item][other] += user_dic[user][item]
-                print("    [{}][{}] = {}".format(item, other, result[item][other]))
+                #print("    [{}][{}] = {}".format(item, other, result[item][other]))
             if user_dic[user][other] >= 10:
                 result[other][item] += 10
-                print("    [{}][{}] = {}".format(other, item, result[other][item]))
+                #print("    [{}][{}] = {}".format(other, item, result[other][item]))
             else:
                 result[other][item] += user_dic[user][other]
-                print("    [{}][{}] = {}".format(other, item, result[other][item]))
+                #print("    [{}][{}] = {}".format(other, item, result[other][item]))
     end_time = time.time()
     print('---- data_cal_table', int(end_time - start_time), 'sec')
     print("---- result = {}".format(result.keys().__len__()))
 
     for item in result:
-        print("item in result = {}".format(item))
-        print("item[] in result = {}".format(result[item]))
+        print("item[{}] in table_dic = {}".format(item, result[item]))
 
     return result
 
@@ -165,22 +163,56 @@ def data_cal_sim(table_dic, info_dic):
     print('---- data_cal_sim', int(end_time - start_time), 'sec')
     print("---- result = {}".format(result.keys().__len__()))
 
+    # 결국 (a->b), (b->a) 값은 같아짐.
     for item in result:
-        print("item in data_cal_sim = {} = {}".format(item, result[item]))
+        print("sim_dic[{}], {}".format(item, result[item]))
 
 
     return result
 
 #정규화
 def get_scale(df_set):
+    ## min 값이 항상 0 인데 뺄 필요가 있나요.
     for col in df_set.columns:
-        print("col = {}, {}".format(col, df_set[col]))
+        print("col = {}, df_set[col] = {}".format(col, df_set[col]))
+        print("scale :: ({} - {}) / ({} - {})".format(df_set[col], df_set[col].min(),
+                                                          df_set[col].max(), df_set[col].min()))
         df_set[col]=(df_set[col] - df_set[col].min()) / (df_set[col].max() - df_set[col].min())
+
+    print("----------- after column set -- ")
+    print(df_set)
+    print("----------------------")
+    # 항상 max = 1, min = 0 이라 할 필요 없음
     for idx in df_set.index:
-        print("idx = {}, {}".format(idx, df_set.ix[idx]))
+        print("idx = {}, df_set[idx].max={}, min={}, df_set.ix={}"
+              .format(idx, df_set.ix[idx].max(), df_set.ix[idx].min(), df_set.ix[idx]))
         df_set.ix[idx]=(df_set.ix[idx] - df_set.ix[idx].min()) / (df_set.ix[idx].max() - df_set.ix[idx].min())
-    print('get_scale')
+
     return df_set
+
+def sendContentSimilarity(df_set):
+    ### 임시코드
+    #정규화 유사도 데이터 및 클러스터링 세트 업로드
+    #send ab
+    send_list=[]
+    locale='en-US'
+    idx_list=list(df_set.index)
+    col_list=list(df_set.columns)
+    tmp_list=df_set.values.tolist()
+    for idx in range(0,len(tmp_list)):
+        for col in range(0,len(tmp_list)):
+            send_list.append((locale,int(idx_list[idx]),int(col_list[col]),tmp_list[idx][col]))
+
+    for item in send_list:
+        print("send = {}".format(item))
+    """
+    conn = pymysql.connect(host='lusso.cmocp2gj1d1i.ap-northeast-2.rds.amazonaws.com', user='lezhin', password='Eoqkrfpwls!',db='actdb', charset='utf8')
+    curs = conn.cursor()
+    sql="INSERT INTO sim_ab (locale,a_id,b_id,ab) values (%s,%s,%s,%s)"
+    curs.executemany(sql,send_list)
+    conn.commit()
+    conn.close()
+    """
 
 
 if __name__ == "__main__":
@@ -239,11 +271,15 @@ if __name__ == "__main__":
     df_set=pd.DataFrame.from_dict(sim_dic)
     print("== dfs_set = {}".format(df_set))
     for item in df_set:
-        print("--- dfset item = {} = {}".format(item, df_set[item]))
-
+        print("--- dfset item = {}, {}".format(item, df_set[item]))
+    print("-------------------------------")
     df_set=df_set.fillna(0)
     df_set=get_scale(df_set)
+    print('---- get_scale. df_set  --------------')
+    print(df_set)
 
+    ## temp. send
+    sendContentSimilarity(df_set)
 
     print("Done!")
     spark.stop

@@ -36,14 +36,14 @@ import static org.apache.spark.sql.functions.when;
 /**
  * * To execute,
  * <p>
- * $ spark-submit --class com.lezhin.wasp.similarity.SimiarityCluster target/wasp-app-0.9-SNAPSHOT.jar
+ * $ spark-submit --class com.lezhin.wasp.similarity.SimilarityCluster target/wasp-app-0.9-SNAPSHOT.jar
  * local[*]
  * /usr/lib/spark/README.md
  * java-out
  * </p>
  * <p>
- * $ spark-submit --class com.lezhin.wasp.similarity.SimiarityCluster --master yarn --deploy-mode client \
- * deploy/wasp-app.jar yarn hdfs://sembp:8020/sample/README.md hdfs://sembp:8020/sample/out
+ * $ spark-submit --class com.lezhin.wasp.similarity.SimilarityCluster --master yarn --deploy-mode client \
+ * deploy/wasp-app.jar yarn abc ko-KR thrift://azra:9083
  * </p>
  *
  * @author seoeun
@@ -124,8 +124,8 @@ public class SimilarityCluster {
                                 .otherwise(df.col("purchase_cnt")).as("score")).as("cmap")
         );
 
-        //System.out.println("dfUser.count = " + dfUser.count());
-        dfUser.show();
+        System.out.println("dfUser.count = " + dfUser.count());
+        dfUser.show(100);
 
         Dataset dfUser2 = dfUser.groupBy(col("user_id")).agg(collect_list(col("cmap")).as("content_list"));
         System.out.println("dfUser2.count = " + dfUser2.count());
@@ -155,20 +155,29 @@ public class SimilarityCluster {
             List contents = row.getList(1);
             //System.out.println("contents size = " + contents.size());
             if (contents.size() == 5) {
-                System.out.println("user = " + row.get(0) + ", content_purchase =" + contents.size());
+                //System.out.println("user = " + row.get(0) + ", content_purchase =" + contents.size());
+            }
+            if (i % 1000 == 0) {
+                System.out.println("processing : " + i );
             }
             for (int a = 0; a < contents.size(); a++) {
                 Map record = JavaConversions.mapAsJavaMap((scala.collection.immutable.Map) contents.get(a));
                 //System.out.println("content. size = " + contents.size());
                 if (record.size() != 1) {
-                    System.out.println(" ===== record should be 1 map");
-                    throw new RuntimeException("record should be 1 map");
+                    System.out.println(" !! WARN record should be 1 map");
+                    //throw new RuntimeException("record should be 1 map");
+                    continue;
                 }
                 Map.Entry<Long, Long> contentPurchase = (Map.Entry) record.entrySet().toArray()[0];
                 //System.out.println("---- key = " + contentPurchase.getKey().getClass().getName() + " , value = " +
                 //        contentPurchase.getValue().getClass().getName());
                 Long contentId = contentPurchase.getKey();
                 Long purchaseCount = contentPurchase.getValue();
+                if (contentId == null || purchaseCount == null) {
+                    System.out.println(String.format("!!! WARN userId=%s, contentId=%s, purchaseCount=%s", userId,
+                            contentId, purchaseCount));
+                    continue;
+                }
                 //System.out.println("---- contentId = " + contentId + " , count = " + purchaseCount);
                 purchaseRecord.put(contentId,
                         Record2.builder().contentId(contentId).userId(userId).purchaseCnt(purchaseCount).build());
@@ -176,7 +185,7 @@ public class SimilarityCluster {
             // combination2 from contentList
             List<Long> contentIds = purchaseRecord.keySet().stream().collect(Collectors.toList());
             if (contentIds.size() > 1) {
-                System.out.println("user = " + userId + ", contentIds =  " + contentIds);
+                //System.out.println("user = " + userId + ", contentIds =  " + contentIds);
             }
             List<List<Long>> combinator = Utils.combinator(contentIds);
             for (List<Long> comb: combinator) {
@@ -185,14 +194,12 @@ public class SimilarityCluster {
                 Intersection intersection1 = Intersection.builder().key(sourceContentId + "_" + targetContentId)
                         .sourceContentId(sourceContentId).targetContentId(targetContentId)
                         .score(purchaseRecord.get(sourceContentId).getPurchaseCnt()).build();
-                System.out.println(sourceContentId + " = " + intersection1.toString());
+                //System.out.println(sourceContentId + " = " + intersection1.toString());
                 table.add(intersection1);
             }
 
             userCount[0]++;
         }
-
-
 
         System.out.println(" --- userCount[0] = " + userCount[0]);
 
@@ -204,8 +211,7 @@ public class SimilarityCluster {
 
         Dataset<Row> dfScore = intersectionDF.groupBy("key", "sourceContentId", "targetContentId").sum("score");
         System.out.println("dfScore. size = " + dfScore.count());
-        dfScore.show(100);
-
+        dfScore.orderBy("sourceContentId", "targetContentId").show(100);
 
 
         /**
@@ -278,11 +284,15 @@ public class SimilarityCluster {
 
             System.out.println(" -- query : " + queryStr);
             Dataset<Row> dfLoad = spark.sql(queryStr);
-            dfLoad.show();
             System.out.println("-- dfLoad.count = " + dfLoad.count());
 
-            Dataset infoDf = infoDic(dfLoad);
-            Dataset userDf = userDic(dfLoad);
+
+            Dataset<Row> cleanDf = dfLoad.where(dfLoad.col("purchase_cnt").isNotNull());
+            cleanDf.show();
+            System.out.println("-- cleanDf.count = " + dfLoad.count());
+
+            Dataset infoDf = infoDic(cleanDf);
+            Dataset userDf = userDic(cleanDf);
 
             simTable(spark, infoDf, userDf);
 
