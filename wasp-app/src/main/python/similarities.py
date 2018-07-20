@@ -175,9 +175,8 @@ def get_scale(df_set):
     ## min 값이 항상 0 인데 뺄 필요가 있나요.
     for col in df_set.columns:
         print("col = {}, df_set[col] = {}".format(col, df_set[col]))
-        print("scale :: ({} - {}) / ({} - {})".format(df_set[col], df_set[col].min(),
-                                                          df_set[col].max(), df_set[col].min()))
-        df_set[col]=(df_set[col] - df_set[col].min()) / (df_set[col].max() - df_set[col].min())
+        print("scale :: ({}) / ({})".format(df_set[col], df_set[col].max()))
+        df_set[col]=df_set[col] / df_set[col].max()
 
     print("----------- after column set -- ")
     print(df_set)
@@ -186,7 +185,7 @@ def get_scale(df_set):
     for idx in df_set.index:
         print("idx = {}, df_set[idx].max={}, min={}, df_set.ix={}"
               .format(idx, df_set.ix[idx].max(), df_set.ix[idx].min(), df_set.ix[idx]))
-        df_set.ix[idx]=(df_set.ix[idx] - df_set.ix[idx].min()) / (df_set.ix[idx].max() - df_set.ix[idx].min())
+        df_set.ix[idx]=(df_set.ix[idx] ) / (df_set.ix[idx].max())
 
     return df_set
 

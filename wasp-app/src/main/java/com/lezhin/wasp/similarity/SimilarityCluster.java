@@ -16,6 +16,8 @@ import org.apache.spark.api.java.function.PairFunction;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.functions;
+import org.apache.zookeeper.Op;
 import scala.Tuple2;
 import scala.collection.JavaConversions;
 
@@ -26,11 +28,15 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.apache.spark.sql.functions.col;
 import static org.apache.spark.sql.functions.collect_list;
+import static org.apache.spark.sql.functions.concat_ws;
 import static org.apache.spark.sql.functions.map;
+import static org.apache.spark.sql.functions.max;
+import static org.apache.spark.sql.functions.row_number;
 import static org.apache.spark.sql.functions.when;
 
 /**
@@ -88,7 +94,7 @@ public class SimilarityCluster {
         private String key;
         private long sourceContentId;
         private long targetContentId;
-        private double score;
+        private float scoreSum;
     }
 
     /**
@@ -193,7 +199,7 @@ public class SimilarityCluster {
                 Long targetContentId = comb.get(1);
                 Intersection intersection1 = Intersection.builder().key(sourceContentId + "_" + targetContentId)
                         .sourceContentId(sourceContentId).targetContentId(targetContentId)
-                        .score(purchaseRecord.get(sourceContentId).getPurchaseCnt()).build();
+                        .scoreSum(purchaseRecord.get(sourceContentId).getPurchaseCnt()).build();
                 //System.out.println(sourceContentId + " = " + intersection1.toString());
                 table.add(intersection1);
             }
@@ -235,6 +241,180 @@ public class SimilarityCluster {
 
 
     }
+
+    public static Dataset<Row> userDic2(Dataset<Row> df) {
+
+        Dataset dfUser = df.select(df.col("user_id"),
+                concat_ws("_", col("content_id"),
+                when(df.col("purchase_cnt").geq(10), 10).otherwise(df.col("purchase_cnt")).as("score"))
+                        .as("content_score")
+        );
+
+        System.out.println("dfUser.count = " + dfUser.count());
+        dfUser.printSchema();
+        dfUser.show(100);
+
+        Dataset dfUser2 = dfUser.groupBy(col("user_id")).agg(collect_list(col("content_score")).as("content_list"));
+        System.out.println("dfUser2.count = " + dfUser2.count());
+        dfUser2.show();
+
+        return dfUser2;
+    }
+
+    public static Dataset<Row> simTable2(SparkSession spark, Dataset<Row> userDf) {
+
+        userDf.printSchema();
+
+        System.out.println("start simTable2 ");
+
+        Map<String, Intersection> table = new HashMap<>();
+
+        Row[] list = (Row[])userDf.collect();
+        System.out.println(" userDf list.size = " + list.length);
+
+        final int[] userCount = {0};
+        System.out.println("list.size = " + list.length);
+        for (int i = 0; i < list.length; i++) {
+            Row row = list[i];
+            Long userId = row.getLong(0);
+            //System.out.println("userId = " + userId);
+            Map<Long, Record2> purchaseRecord = new HashMap<>(); // contentId / Record2
+            List<String> contents = row.getList(1);
+            //System.out.println("contents size = " + contents.size());
+            if (contents.size() == 5) {
+                //System.out.println("user = " + row.get(0) + ", content_purchase =" + contents.size());
+            }
+            if (i % 1000 == 0) {
+                System.out.println("processing : " + i );
+            }
+            for (int a = 0; a < contents.size(); a++) {
+                String content_purchase = contents.get(a);
+                //System.out.println("content_purchase = " + content_purchase);
+                try {
+                    int index = content_purchase.indexOf("_");
+                    Long contentId = Long.valueOf(content_purchase.substring(0, index));
+                    Long purchaseCount = Long.valueOf(content_purchase.substring(index + 1, content_purchase.length()));
+
+                    purchaseRecord.put(contentId,
+                            Record2.builder().contentId(contentId).userId(userId).purchaseCnt(purchaseCount).build());
+                } catch (Exception e) {
+                    System.out.println(String.format(
+                            "!!! WARN. Failed to create record. user = %s, content_purchase = %s, msg = %s",
+                            userId, content_purchase, e.getMessage()));
+                    continue;
+                }
+
+            }
+            // combination2 from contentList
+            List<Long> contentIds = purchaseRecord.keySet().stream().collect(Collectors.toList());
+            if (contentIds.size() > 1) {
+                //System.out.println("user = " + userId + ", contentIds =  " + contentIds);
+            }
+            List<List<Long>> combinator = Utils.combinator(contentIds);
+            for (List<Long> comb: combinator) {
+                Long sourceContentId = comb.get(0);
+                Long targetContentId = comb.get(1);
+                String key = sourceContentId + "_" + targetContentId;
+                Intersection newIntersection = Intersection.builder().key(key)
+                        .sourceContentId(sourceContentId).targetContentId(targetContentId)
+                        .scoreSum(purchaseRecord.get(sourceContentId).getPurchaseCnt()).build();
+
+                Intersection intersection = table.get(key);
+                if (intersection == null) {
+                    table.put(key, newIntersection);
+                } else {
+                    Intersection merge = Intersection.builder().key(key)
+                            .sourceContentId(sourceContentId).targetContentId(targetContentId)
+                            .scoreSum(intersection.getScoreSum() + newIntersection.getScoreSum()).build();
+                    table.put(key, merge);
+                }
+                //System.out.println(sourceContentId + " = " + intersection1.toString());
+            }
+
+            userCount[0]++;
+        }
+
+        System.out.println(" --- userCount[0] = " + userCount[0]);
+
+        System.out.println("---- intersection. org. size = " + table.size());
+        Dataset<Row> df =spark.createDataFrame(
+                new ArrayList<>(table.values()), Intersection.class).select(col("key"), col("scoreSum"));
+        df.show();
+        return df;
+    }
+
+    public static void simTable3(SparkSession spark, Dataset<Row> infoDf, Dataset<Row> intersectionDf) {
+
+        intersectionDf.printSchema();
+
+        int itemCount = new Integer(String.valueOf(infoDf.count()));
+        System.out.println("simTable. itemCount = " + itemCount);
+
+        Map<Long, Long> infoDic = infoDf.toJavaRDD()
+                .mapToPair(row -> new Tuple2<>(row.getLong(0), row.getLong(1))).collectAsMap();
+        System.out.println("infoDic. size = " + infoDic.size());
+
+        Map<String, Float> simDic = intersectionDf.toJavaRDD()
+                .mapToPair(row -> new Tuple2<>(row.getString(0), row.getFloat(1))).collectAsMap();
+        System.out.println("simDic . size = " + simDic.size());
+
+        Map<String, Intersection> simTable = new HashMap<>();
+
+        Row[] list = (Row[])intersectionDf.collect();
+        System.out.println(" intersectionDf list.size = " + list.length);
+
+        for (Map.Entry<String, Float> entry: simDic.entrySet()) {
+            String key = entry.getKey();
+            int index = key.indexOf("_");
+            Long sourceId = Long.valueOf(key.substring(0, index));
+            Long targetId = Long.valueOf(key.substring(index + 1, key.length()));
+            Float value = entry.getValue();
+
+            float abScore = value
+                    + Optional.ofNullable(simDic.get(targetId+ "_" + sourceId)).orElse(0F);
+            float abScoreSum = Optional.ofNullable(infoDic.get(sourceId)).orElse(0L)
+                    + Optional.ofNullable(infoDic.get(targetId)).orElse(0L);
+            float score = abScore / abScoreSum;
+            simTable.put(key, Intersection.builder().key(key).sourceContentId(sourceId).targetContentId(targetId)
+                    .scoreSum(score).build() );
+        }
+
+
+//        for (Map.Entry<String, Intersection> entry: table.entrySet()) {
+//            String key = entry.getKey();
+//            int index = key.indexOf("_");
+//            Long sourceId = Long.valueOf(key.substring(0, index));
+//            Long targetId = Long.valueOf(key.substring(index + 1, key.length()));
+//
+//            float abScore = entry.getValue().getScoreSum()
+//                    + Optional.ofNullable(table.get(targetId+ "_" + sourceId).getScoreSum()).orElse(0F);
+//            float abScoreSum = Optional.ofNullable(infoDic.get(sourceId)).orElse(0L)
+//                    + Optional.ofNullable(infoDic.get(targetId)).orElse(0L);
+//            float score = abScore / abScoreSum;
+//            simTable.put(key, Intersection.builder().key(key).sourceContentId(sourceId).targetContentId(targetId)
+//                    .scoreSum(score).build() );
+//        }
+
+        Dataset<Row> intersectionDF = spark.createDataFrame(
+                new ArrayList<>(simTable.values()), Intersection.class);
+
+        intersectionDF.printSchema();
+        //intersectionDF.orderBy(col("key")).show();
+
+
+        System.out.println("intersectionDF. size = " + intersectionDF.count());
+        intersectionDF.orderBy("sourceContentId", "targetContentId").show(100);
+
+        Map<Long, Float> colMax = intersectionDF.groupBy(col("targetContentId")).agg(max("scoreSum").as("max"))
+                .toJavaRDD().mapToPair(row -> new Tuple2<>(row.getLong(0), row.getFloat(1))).collectAsMap();
+
+//        Dataset<Row> colScaled = intersectionDF.select(col("key"),
+//                col("scoreSum"))
+
+
+
+    }
+
 
 
     public static void main(String... args) {
@@ -292,9 +472,13 @@ public class SimilarityCluster {
             System.out.println("-- cleanDf.count = " + dfLoad.count());
 
             Dataset infoDf = infoDic(cleanDf);
-            Dataset userDf = userDic(cleanDf);
+            Dataset userDf = userDic2(cleanDf);
 
-            simTable(spark, infoDf, userDf);
+            Dataset tableDic = simTable2(spark, userDf);
+
+            System.out.println("----- finish tableDic");
+            simTable3(spark, infoDf, tableDic);
+
 
             System.out.println("---- DONE !!!");
 
