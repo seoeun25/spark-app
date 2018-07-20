@@ -226,7 +226,7 @@ if __name__ == "__main__":
     print("inputTable:%s", inputTable)
 
     # We have to set the hive metastore uri.
-    hiveMetastore = "thrift://azra:9083"
+    hiveMetastore = "thrift://sembp:9083"
     #hiveMetastore = "thrift://insight-v3-m:9083"
 
     SparkContext.setSystemProperty("hive.metastore.uris", hiveMetastore)
