@@ -11,12 +11,14 @@ from sklearn.cluster import KMeans
 
 from pyspark import SparkContext
 from pyspark.sql import SparkSession
+from pyspark.sql import functions
 from pyspark.sql.types import *
 
 # sudo apt-get install python3-pip
 # sudo apt-get install python3-pandas
 # sudo apt-get install python3-pymysql
 # sudo pip3 install pyhive
+# sudo pip install sklearn
 # spark-submit wasp-app/src/main/python/similaritiesCluster.py azra brook01.table
 
 def dataLoad(spark, locale="ko-KR"):
@@ -24,7 +26,7 @@ def dataLoad(spark, locale="ko-KR"):
     #           "".format(locale)
 
     queryStr = "SELECT source_content_id, target_content_id, abscore " \
-               "FROM actdb.content_similarities_spark" \
+               "FROM actdb.content_similarity" \
                " WHERE locale='{}'".format(locale)
 
     print("   ===  {} ".format(queryStr))
@@ -182,71 +184,39 @@ def get_blend(df_set, kmeans_result):
     #print(con_set_dic)
     return con_set_dic
 
-def get_media():
-    conn = presto.connect(host='35.192.91.157')
-    curs = conn.cursor()
-    sql="""
-    SELECT content_id, avg_read_users, sum_read_users
-    FROM actdb.read_agg20180706
-    """
-    curs.execute(sql)
-    read_rows = curs.fetchall()
-    sql="""
-    SELECT content_id, avg_pur_users, avg_pur_cnt, sum_pur_users, sum_pur_cnt
-    FROM actdb.pur_agg20180706
-    """
-    curs.execute(sql)
-    pur_rows = curs.fetchall()
-    sql="""
-    SELECT id, title
-    FROM lz_server.media
-    """
-    curs.execute(sql)
-    title_rows = curs.fetchall()
-    conn.close()
+def get_media(spark):
+
+    mediaQuery = "SELECT id, title, sum_read_users, sum_purchase_cnt " \
+                 "FROM actdb.media_purchase_read_agg"
+
+    print("  mediaQuery ===  {} ".format(mediaQuery))
+    mediaDf = spark.sql(mediaQuery)
+    mediaList = mediaDf.collect()
+    print(" --- rowList.len = {}".format(mediaList.__len__()))
+
 
     media_dic={}
 
-    for i in range(0,len(read_rows)):
-        (content_id,avg_read_users,sum_read_users)=read_rows[i]
-        media_dic.setdefault(content_id,{})
-        media_dic[content_id]['rd_usr']=float(avg_read_users)
-        media_dic[content_id]['sum_read_users']=float(sum_read_users)
+    for i in range(0, mediaList.__len__()):
+        item = mediaList[i]
+        id = item["id"]
+        title = item["title"]
+        sum_read_users = item["sum_read_users"]
+        sum_purchase_cnt = item["sum_purchase_cnt"]
 
-    for i in range(0,len(pur_rows)):
-        (content_id,avg_pur_users,avg_pur_cnt,sum_pur_users,sum_pur_cnt)=pur_rows[i]
-        media_dic.setdefault(content_id,{})
-        media_dic[content_id]['pur_usr']=float(avg_pur_users)
-        media_dic[content_id]['pur_cnt']=float(avg_pur_cnt)
-        media_dic[content_id]['sum_pur_user']=float(sum_pur_users)
-        media_dic[content_id]['sum_pur_cnt']=float(sum_pur_cnt)
+        media_dic.setdefault(id,{})
+        media_dic[id]['sum_read_users']=float(sum_read_users)
+        media_dic[id]['sum_purchase_cnt']=float(sum_purchase_cnt)
 
-    for i in range(0,len(title_rows)):
-        (content_id,title)=title_rows[i]
-        media_dic.setdefault(content_id,{})
-        media_dic[content_id]['title']=title
+    #print(" ---- media_dic", media_dic)
     print("media_dic finish")
     return media_dic
 
 def get_order(con_set_dic, media_dic):
     #열람 하나, 구매 하나
-    rd_list=[]
-    pur_list=[]
     rdsum_list=[]
     pursum_list=[]
     for item in con_set_dic:
-        if 'rd_usr' not in media_dic[item]:
-            rd_usr=0
-        else:
-            rd_usr=media_dic[item]['rd_usr']
-        rd_list.append((rd_usr,item,con_set_dic[item]))
-
-        if 'pur_cnt' not in media_dic[item]:
-            pur_cnt=0
-        else:
-            pur_cnt=media_dic[item]['pur_cnt']
-        pur_list.append((pur_cnt,item,con_set_dic[item]))
-
         if 'sum_read_users' not in media_dic[item]:
             sum_read_users=0
         else:
@@ -259,10 +229,6 @@ def get_order(con_set_dic, media_dic):
             sum_pur_cnt=media_dic[item]['sum_pur_cnt']
         pursum_list.append((sum_pur_cnt,item,con_set_dic[item]))
 
-    rd_list.sort()
-    rd_list.reverse()
-    pur_list.sort()
-    pur_list.reverse()
     rdsum_list.sort()
     rdsum_list.reverse()
     pursum_list.sort()
@@ -270,7 +236,7 @@ def get_order(con_set_dic, media_dic):
 
     media_list=[]
     check_list=[]
-    for i in range(0,len(rd_list)):
+    for i in range(0,len(rdsum_list)):
         #    (b,pur_content_id,pur_set_id)=pur_list[i]
         #    if pur_content_id not in check_list:
         #        media_list.append((pur_content_id,pur_set_id))
@@ -304,45 +270,70 @@ def get_order(con_set_dic, media_dic):
     for set in range(0,len(rank_set_list)):
         for con in range(0,len(rank_con_dic[rank_set_list[set]])):
             #print set, rank_set_list[set], con, rank_con_dic[rank_set_list[set]][con]
-            result.append((set, con, rank_con_dic[rank_set_list[set]][con]))
+            print("-- result. set={}, content={}, rank={} "
+                  .format(set, con, rank_con_dic[rank_set_list[set]][con]))
+            #result.append((set, con, rank_con_dic[rank_set_list[set]][con]))
+            result.append((set, con, int("{}".format(rank_con_dic[rank_set_list[set]][con]))))
     print("get_order finish")
     return result
 
-def sendContentSimilarity(df_set):
-    ### 임시코드
-    #정규화 유사도 데이터 및 클러스터링 세트 업로드
-    #send ab
-    send_list=[]
-    locale='en-US'
-    idx_list=list(df_set.index)
-    col_list=list(df_set.columns)
-    tmp_list=df_set.values.tolist()
-    for idx in range(0,len(tmp_list)):
-        for col in range(0,len(tmp_list)):
-            send_list.append((locale,int(idx_list[idx]),int(col_list[col]),tmp_list[idx][col]))
+def sendContentSimilaritySet(spark, resultSet, ymd, locale, adult):
 
-    for item in send_list:
-        print("send = {}".format(item))
+    print("----- start save contentSimilaritySet ")
+    #print(resultSet)
+    print("----- ")
+
+    for item in resultSet:
+        setId = item[0]
+        rank = item[1]
+        contentId = item[2]
+        #print("setId = {}. contentId={}, rank = {}".format(setId, contentId, rank))
+        #print("type = ", type(item) )
+
+    #df = spark.createDataFrame(resultSet, ['set_id', 'rank', 'content_id'])
+    df = spark.createDataFrame(resultSet , ["set_id", "content_order", "content_id"])\
+        .withColumn("ymd", functions.lit(ymd)).withColumn("locale",functions.lit(locale))\
+        .withColumn("adult", functions.lit(adult))
+    #df = spark.createDataFrame(resultSet, [0, 1, 2])
+
+    #print("---- colllect : ", df.collect())
+
+    df.createOrReplaceTempView("content_similarity_set_tmp");
+    spark.sql("drop table if exists actdb.content_similarity_set");
+    spark.sql("create table actdb.content_similarity_set as select * from content_similarity_set_tmp");
+
+    print("----- end save content_similarity_set")
+
+
+
     """
+    send_list=[]
+    locale='ko-KR'
+    adult=1
+    ymd=20180708
+    for i in range(0,len(result)):
+        (set_order,content_order,content_id)=result[i]
+        send_list.append((locale,adult,int(set_order),int(content_order),int(content_id),ymd))
+
     conn = pymysql.connect(host='lusso.cmocp2gj1d1i.ap-northeast-2.rds.amazonaws.com', user='lezhin', password='Eoqkrfpwls!',db='actdb', charset='utf8')
     curs = conn.cursor()
-    sql="INSERT INTO sim_ab (locale,a_id,b_id,ab) values (%s,%s,%s,%s)"
+    sql="INSERT INTO sim_cls (locale,adult,set_order,content_order,content_id,ymd) values (%s,%s,%s,%s,%s,%s)"
     curs.executemany(sql,send_list)
     conn.commit()
     conn.close()
     """
 
-
 if __name__ == "__main__":
     print(sys.version)
     print(sys.argv)
     print(sys.argv.__len__())
-    if len(sys.argv) != 4:
+    if len(sys.argv) != 5:
         print("Error usage: LoadHive [ymd] [locale] [metastore]")
         sys.exit(-1)
     ymd = sys.argv[1]
     locale = sys.argv[2]
-    metastore = sys.argv[3]
+    adult = sys.argv[3]
+    metastore = sys.argv[4]
     print("ymd: ", ymd)
     print("locale: ", locale)
     print("metastore: ", metastore)
@@ -389,14 +380,14 @@ if __name__ == "__main__":
     con_set_dic=get_blend(df_set, kmeans_result)
 
     #미디어 데이터 로드
-    media_dic=get_media()
+    media_dic=get_media(spark)
 
     #작품, 세트 오더링
     result=get_order(con_set_dic,media_dic)
 
 
     ## temp. send
-    #sendContentSimilarity(df_set)
+    sendContentSimilaritySet(spark, result, ymd, locale, adult)
 
 
     print("Done!")

@@ -240,16 +240,17 @@ public class SimilarityScore {
 
     public static void main(String... args) {
 
-        if (ArrayUtils.getLength(args) != 4) {
+        if (ArrayUtils.getLength(args) != 5) {
             System.out.println("Usage: SimilarityCluster <master> <ymd> <locale>");
             return;
         }
         String master = args[0];
         String ymd = args[1];
         String locale = args[2];
-        String hiveMetastore = args[3];
-        System.out.println(String.format("master = %s, ymd = %s, locale = %s, metastore = %s", master, ymd, locale,
-                hiveMetastore));
+        String adult = args[3];
+        String hiveMetastore = args[4];
+        System.out.println(String.format("master = %s, ymd = %s, locale = %s, adult = %s, metastore = %s",
+                master, ymd, locale, adult, hiveMetastore));
 
         JavaSparkContext sc = getSparkContext("SimilarityCluster", master);
 
@@ -276,12 +277,19 @@ public class SimilarityScore {
             Arrays.stream(sc.getConf().getAll()).forEach(tuple -> System.out.println("conf : " + tuple._1() + " = " +
                     tuple._2()));
 
-//            String queryStr = String.format("SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity " +
-//                    "WHERE " +
-//                    "locale='%s'", locale);
+            // adult == 1 이면 audult 조건은 필요 없음. 모두.
+            String adultCondition = null;
+            if ("1".equals(adult)) {
+                adultCondition = "and adult = " + adult;
+            }
+            String queryStr = String.format("SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity " +
+                    "WHERE locale='%s' ", locale);
+            if (adultCondition !=null) {
+                queryStr = queryStr + adultCondition;
+            }
 
-            String queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity WHERE" +
-                    " locale='ko-KR' and  content_id <= 20 ";
+//            String queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity WHERE" +
+//                    " locale='ko-KR' and  content_id <= 20 ";
 
             System.out.println(" -- query : " + queryStr);
             Dataset<Row> dfLoad = spark.sql(queryStr);

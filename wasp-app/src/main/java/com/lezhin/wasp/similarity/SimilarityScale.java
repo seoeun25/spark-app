@@ -37,7 +37,8 @@ import static org.apache.spark.sql.functions.max;
  */
 public class SimilarityScale {
 
-    public static Dataset<Row> scale2(SparkSession spark, Dataset<Row> scoreDf, String locale, String ymd) {
+    public static Dataset<Row> scale2(SparkSession spark, Dataset<Row> scoreDf, String locale, String ymd,
+                                      String adult) {
 
         scoreDf.printSchema();
         scoreDf.createOrReplaceTempView("score_cal_tmp");
@@ -101,6 +102,7 @@ public class SimilarityScale {
         Dataset<Row> union = idxScaled.unionAll(selfDf)
                 .withColumn("locale", functions.lit(locale))
                 .withColumn("ymd", functions.lit(ymd))
+                .withColumn("adult", functions.lit(adult))
                 .withColumn("created_at", functions.lit(timestamp))
                 .orderBy(col("source_content_id"), col("target_content_id"));
 
@@ -110,28 +112,29 @@ public class SimilarityScale {
     public static void save(SparkSession spark, Dataset<Row> scaledDf) {
 
 
-        System.out.println("---- start save content_similarities_spark");
+        System.out.println("---- start save content_similarity");
 
-        scaledDf.createOrReplaceTempView("content_similarities_spark_tmp");
-        spark.sql("drop table if exists actdb.content_similarities_spark");
-        spark.sql("create table actdb.content_similarities_spark as select * from content_similarities_spark_tmp");
+        scaledDf.createOrReplaceTempView("content_similarity_tmp");
+        spark.sql("drop table if exists actdb.content_similarity");
+        spark.sql("create table actdb.content_similarity as select * from content_similarity_tmp");
 
-        System.out.println("---- save content_similarities_spark");
+        System.out.println("---- save content_similarity");
 
     }
 
     public static void main(String... args) {
 
-        if (ArrayUtils.getLength(args) != 4) {
+        if (ArrayUtils.getLength(args) != 5) {
             System.out.println("Usage: SimilarityScoreCal <master> <ymd> <locale> <hive-metastore>");
             return;
         }
         String master = args[0];
         String ymd = args[1];
         String locale = args[2];
-        String hiveMetastore = args[3];
-        System.out.println(String.format("master = %s, ymd = %s, locale = %s, metastore = %s", master, ymd, locale,
-                hiveMetastore));
+        String adult = args[3];
+        String hiveMetastore = args[4];
+        System.out.println(String.format("master = %s, ymd = %s, locale = %s, adult = %s, metastore = %s",
+                master, ymd, locale, adult, hiveMetastore));
 
         JavaSparkContext sc = getSparkContext("SimilarityScoreCal", master);
 
@@ -168,77 +171,11 @@ public class SimilarityScale {
             scoreDf.show();
 
             System.out.println("----- start scale");
-            Dataset<Row> df = scale2(spark, scoreDf, locale, ymd);
+            Dataset<Row> df = scale2(spark, scoreDf, locale, ymd, adult);
             save(spark, df);
 
             System.out.println("---- DONE !!!");
 
-
-            /**
-
-
-             spark.sql("CREATE TABLE IF NOT EXISTS src (key INT, value STRING)");
-             spark.sql("LOAD DATA LOCAL INPATH 'examples/src/main/resources/kv1.txt' INTO TABLE src");
-
-             // Queries are expressed in HiveQL
-             spark.sql("SELECT * FROM src").show();
-             // +---+-------+
-             // |key|  value|
-             // +---+-------+
-             // |238|val_238|
-             // | 86| val_86|
-             // |311|val_311|
-             // ...
-
-             // Aggregation queries are also supported.
-             spark.sql("SELECT COUNT(*) FROM src").show();
-             // +--------+
-             // |count(1)|
-             // +--------+
-             // |    500 |
-             // +--------+
-
-             // The results of SQL queries are themselves DataFrames and support all normal functions.
-             Dataset<Row> sqlDF = spark.sql("SELECT key, value FROM src WHERE key < 10 ORDER BY key");
-
-             // The items in DaraFrames are of type Row, which lets you to access each column by ordinal.
-             Dataset<String> stringsDS = sqlDF.map(new MapFunction<Row, String>() {
-            @Override public String call(Row row) throws Exception {
-            return "Key: " + row.get(0) + ", Value: " + row.get(1);
-            }
-            }, Encoders.STRING());
-             stringsDS.show();
-             // +--------------------+
-             // |               value|
-             // +--------------------+
-             // |Key: 0, Value: val_0|
-             // |Key: 0, Value: val_0|
-             // |Key: 0, Value: val_0|
-             // ...
-
-             // You can also use DataFrames to create temporary views within a SparkSession.
-             List<Record> records = new ArrayList<>();
-             for (int key = 1; key < 100; key++) {
-             Record record = new Record();
-             record.setKey(key);
-             record.setValue("val_" + key);
-             records.add(record);
-             }
-             Dataset<Row> recordsDF = spark.createDataFrame(records, Record.class);
-             recordsDF.createOrReplaceTempView("records");
-
-             // Queries can then join DataFrames data with data stored in Hive.
-             spark.sql("SELECT * FROM records r JOIN src s ON r.key = s.key").show();
-             // +---+------+---+------+
-             // |key| value|key| value|
-             // +---+------+---+------+
-             // |  2| val_2|  2| val_2|
-             // |  2| val_2|  2| val_2|
-             // |  4| val_4|  4| val_4|
-             // ...
-             // $example off:spark_hive$
-
-             */
 
             spark.stop();
 

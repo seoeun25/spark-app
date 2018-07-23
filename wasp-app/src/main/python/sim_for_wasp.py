@@ -253,23 +253,9 @@ def get_media():
 
 def get_order(con_set_dic, media_dic):
     #열람 하나, 구매 하나
-    rd_list=[]
-    pur_list=[]
     rdsum_list=[]
     pursum_list=[]
     for item in con_set_dic:
-        if 'rd_usr' not in media_dic[item]:
-            rd_usr=0
-        else:
-            rd_usr=media_dic[item]['rd_usr']
-        rd_list.append((rd_usr,item,con_set_dic[item]))
-
-        if 'pur_cnt' not in media_dic[item]:
-            pur_cnt=0
-        else:
-            pur_cnt=media_dic[item]['pur_cnt']
-        pur_list.append((pur_cnt,item,con_set_dic[item]))
-
         if 'sum_read_users' not in media_dic[item]:
             sum_read_users=0
         else:
@@ -282,10 +268,6 @@ def get_order(con_set_dic, media_dic):
             sum_pur_cnt=media_dic[item]['sum_pur_cnt']
         pursum_list.append((sum_pur_cnt,item,con_set_dic[item]))
 
-    rd_list.sort()
-    rd_list.reverse()
-    pur_list.sort()
-    pur_list.reverse()
     rdsum_list.sort()
     rdsum_list.reverse()
     pursum_list.sort()
@@ -294,20 +276,10 @@ def get_order(con_set_dic, media_dic):
     media_list=[]
     check_list=[]
     for i in range(0,len(rd_list)):
-        #    (b,pur_content_id,pur_set_id)=pur_list[i]
-        #    if pur_content_id not in check_list:
-        #        media_list.append((pur_content_id,pur_set_id))
-        #        check_list.append(pur_content_id)
-
         (c,rdsum_content_id,rdsum_set_id)=rdsum_list[i]
         if rdsum_content_id not in check_list:
             media_list.append((rdsum_content_id,rdsum_set_id))
             check_list.append(rdsum_content_id)
-
-            #    (a,rd_content_id,rd_set_id)=rd_list[i]
-            #    if rd_content_id not in check_list:
-            #        media_list.append((rd_content_id,rd_set_id))
-            #        check_list.append(rd_content_id)
 
         (d,pursum_content_id,pursum_set_id)=pursum_list[i]
         if pursum_content_id not in check_list:
@@ -329,7 +301,6 @@ def get_order(con_set_dic, media_dic):
             #print set, rank_set_list[set], con, rank_con_dic[rank_set_list[set]][con]
             result.append((set, con, rank_con_dic[rank_set_list[set]][con]))
     return result
-
 ####
 
 #데이터 로드
