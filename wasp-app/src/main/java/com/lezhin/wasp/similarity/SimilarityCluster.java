@@ -265,7 +265,7 @@ public class SimilarityCluster {
 
         userDf.printSchema();
 
-        System.out.println("start simTable2 ");
+        System.out.println("start scoreDf ");
 
         Map<String, Intersection> table = new HashMap<>();
 

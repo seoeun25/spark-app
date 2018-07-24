@@ -32,4 +32,13 @@ public class Utils {
         }
         return combinations;
     }
+
+    /**
+     *
+     * @param lezhinLocale ko-KR, ja-JP, en-Us
+     * @return ko | ja | en
+     */
+    public static String getLanguage(String lezhinLocale) {
+        return lezhinLocale.substring(0, 2);
+    }
 }

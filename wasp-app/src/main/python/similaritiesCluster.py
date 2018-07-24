@@ -21,15 +21,15 @@ from pyspark.sql.types import *
 # sudo pip install sklearn
 # spark-submit wasp-app/src/main/python/similaritiesCluster.py azra brook01.table
 
-def dataLoad(spark, locale="ko-KR"):
+def dataLoad(spark, locale, adult):
     #queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity WHERE locale='{}'" \
     #           "".format(locale)
 
     queryStr = "SELECT source_content_id, target_content_id, abscore " \
-               "FROM actdb.content_similarity" \
-               " WHERE locale='{}'".format(locale)
+               "FROM actdb.content_similarity_{}{}" \
+               " WHERE locale='{}' and adult ='{}'".format(locale[:2], adult, locale, adult)
 
-    print("   ===  {} ".format(queryStr))
+    print("   ===  queryStr {} ".format(queryStr))
     df_load = spark.sql(queryStr)
     # df_load = spark.sql('select user_id, content_id, locale, adult, purchase_cnt from
     # actdb.purchase_count_similarity limit 10')
@@ -277,7 +277,7 @@ def get_order(con_set_dic, media_dic):
     print("get_order finish")
     return result
 
-def sendContentSimilaritySet(spark, resultSet, ymd, locale, adult):
+def saveContentSimilaritySet(spark, resultSet, ymd, locale, adult):
 
     print("----- start save contentSimilaritySet ")
     #print(resultSet)
@@ -293,14 +293,16 @@ def sendContentSimilaritySet(spark, resultSet, ymd, locale, adult):
     #df = spark.createDataFrame(resultSet, ['set_id', 'rank', 'content_id'])
     df = spark.createDataFrame(resultSet , ["set_id", "content_order", "content_id"])\
         .withColumn("ymd", functions.lit(ymd)).withColumn("locale",functions.lit(locale))\
-        .withColumn("adult", functions.lit(adult))
+        .withColumn("adult", functions.lit(adult))\
+        .withColumn("created_at", functions.lit(int(round(time.time() * 1000))))
     #df = spark.createDataFrame(resultSet, [0, 1, 2])
 
     #print("---- colllect : ", df.collect())
 
-    df.createOrReplaceTempView("content_similarity_set_tmp");
-    spark.sql("drop table if exists actdb.content_similarity_set");
-    spark.sql("create table actdb.content_similarity_set as select * from content_similarity_set_tmp");
+    tableName = "actdb.content_similarity_set_{}{}".format(locale[:2], adult)
+    df.createOrReplaceTempView("content_similarity_set_tmp")
+    spark.sql("drop table if exists " + tableName)
+    spark.sql("create table {} as select * from content_similarity_set_tmp".format(tableName))
 
     print("----- end save content_similarity_set")
 
@@ -327,21 +329,20 @@ if __name__ == "__main__":
     print(sys.version)
     print(sys.argv)
     print(sys.argv.__len__())
-    if len(sys.argv) != 5:
-        print("Error usage: LoadHive [ymd] [locale] [metastore]")
+    if len(sys.argv) < 3:
+        print("Error usage: similaritiesCluster [ymd] [locale] [adult] [metastore]")
         sys.exit(-1)
     ymd = sys.argv[1]
     locale = sys.argv[2]
     adult = sys.argv[3]
-    metastore = sys.argv[4]
+    metastore = "thrift://insight-v3-m:9083"
     print("ymd: ", ymd)
     print("locale: ", locale)
+    print("adult: ", adult)
+    if (sys.argv.__len__() > 4):
+        metastore = sys.argv[4]
     print("metastore: ", metastore)
 
-
-    # We have to set the hive metastore uri.
-    #hiveMetastore = "thrift://sembp:9083"
-    #hiveMetastore = "thrift://insight-v3-m:9083"
 
     SparkContext.setSystemProperty("hive.metastore.uris", metastore)
 
@@ -358,7 +359,7 @@ if __name__ == "__main__":
     print("-- confs = {}".format(confs))
 
     #데이터 로드
-    score_dic=dataLoad(spark)
+    score_dic=dataLoad(spark, locale, adult)
 
     #데이터프레임 생성
     df_set=pd.DataFrame.from_dict(score_dic)
@@ -387,7 +388,7 @@ if __name__ == "__main__":
 
 
     ## temp. send
-    sendContentSimilaritySet(spark, result, ymd, locale, adult)
+    saveContentSimilaritySet(spark, result, ymd, locale, adult)
 
 
     print("Done!")
