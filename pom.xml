@@ -23,6 +23,7 @@
 
     <modules>
         <module>wikibook</module>
+        <module>wasp-app</module>
     </modules>
 
     <dependencyManagement>
@@ -66,6 +67,12 @@
                 <groupId>org.apache.hadoop</groupId>
                 <artifactId>hadoop-client</artifactId>
                 <version>${hadoop.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>1.18.0</version>
             </dependency>
 
             <!-- common -->
