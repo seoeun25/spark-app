@@ -45,6 +45,16 @@ public class SimilarityJaccard {
     @Builder
     @Getter
     @EqualsAndHashCode
+    public static class Score implements Serializable {
+        private String key;
+        private long sourceContentId;
+        private long targetContentId;
+        private double score;
+    }
+
+    @Builder
+    @Getter
+    @EqualsAndHashCode
     public static class Intersection implements Serializable {
         private String key;
         private long sourceContentId;
@@ -178,12 +188,12 @@ public class SimilarityJaccard {
         idxScaled.show(10);
 
         // add self score
-        JavaRDD<SimilarityScaleOld.Score> rdd = idxScaled.select(col("sourcecontentid")).distinct().toJavaRDD()
-                .map(row -> SimilarityScaleOld.Score.builder().key(String.valueOf(row.getLong(0) + "_" + row.getLong(0)))
+        JavaRDD<Score> rdd = idxScaled.select(col("sourcecontentid")).distinct().toJavaRDD()
+                .map(row -> Score.builder().key(String.valueOf(row.getLong(0) + "_" + row.getLong(0)))
                         .sourceContentId(row.getLong(0))
                         .targetContentId(row.getLong(0))
                         .score(0.0).build());
-        Dataset<Row> selfDf = spark.createDataFrame(rdd, SimilarityScaleOld.Score.class)
+        Dataset<Row> selfDf = spark.createDataFrame(rdd, Score.class)
                 .select(col("key"), col("sourcecontentid"),
                         col("targetcontentid"),
                         col("score").as("abscore"));
@@ -255,7 +265,7 @@ public class SimilarityJaccard {
         System.out.println(String.format("master = %s, ymd = %s, locale = %s, adultKind=%s, metastore = %s",
                 master, ymd, locale, adultKind, hiveMetastore));
 
-        JavaSparkContext sc = getSparkContext("SimilarityScoreCalOld", master);
+        JavaSparkContext sc = getSparkContext("SimilarityJaccard", master);
 
         try {
 

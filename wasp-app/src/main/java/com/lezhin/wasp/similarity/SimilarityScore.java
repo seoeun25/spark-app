@@ -23,9 +23,8 @@ import java.util.stream.Collectors;
 
 import static org.apache.spark.sql.functions.col;
 import static org.apache.spark.sql.functions.collect_list;
-import static org.apache.spark.sql.functions.max;
-import static org.apache.spark.sql.functions.when;
 import static org.apache.spark.sql.functions.concat_ws;
+import static org.apache.spark.sql.functions.when;
 
 
 /**
@@ -69,7 +68,7 @@ public class SimilarityScore {
 
         Dataset dfUser = df.select(df.col("user_id"),
                 concat_ws("_", col("content_id"),
-                when(df.col("purchase_cnt").geq(10), 10).otherwise(df.col("purchase_cnt")).as("score"))
+                        when(df.col("purchase_cnt").geq(10), 10).otherwise(df.col("purchase_cnt")).as("score"))
                         .as("content_score")
         );
 
@@ -92,7 +91,7 @@ public class SimilarityScore {
 
         Map<String, Intersection> table = new HashMap<>();
 
-        Row[] list = (Row[])userDf.collect();
+        Row[] list = (Row[]) userDf.collect();
         System.out.println(" userDf list.size = " + list.length);
 
         final int[] userCount = {0};
@@ -108,7 +107,7 @@ public class SimilarityScore {
                 //System.out.println("user = " + row.get(0) + ", content_purchase =" + contents.size());
             }
             if (i % 5000 == 0) {
-                System.out.println("processing : " + i );
+                System.out.println("processing : " + i);
             }
             for (int a = 0; a < contents.size(); a++) {
                 String content_purchase = contents.get(a);
@@ -134,7 +133,7 @@ public class SimilarityScore {
                 //System.out.println("user = " + userId + ", contentIds =  " + contentIds);
             }
             List<List<Long>> combinator = Utils.combinator(contentIds);
-            for (List<Long> comb: combinator) {
+            for (List<Long> comb : combinator) {
                 Long sourceContentId = comb.get(0);
                 Long targetContentId = comb.get(1);
                 String key = sourceContentId + "_" + targetContentId;
@@ -166,7 +165,7 @@ public class SimilarityScore {
         JavaSparkContext jsc = new JavaSparkContext(spark.sparkContext());
         Broadcast<ArrayList<Intersection>> broadcastVar = jsc.broadcast(list1);
 
-        Dataset<Row> df =spark.createDataFrame(
+        Dataset<Row> df = spark.createDataFrame(
                 broadcastVar.getValue(), Intersection.class).select(col("key"), col("scoreSum"));
         df.show();
 
@@ -230,7 +229,7 @@ public class SimilarityScore {
             }
             String queryStr = String.format("SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity " +
                     "WHERE locale='%s' ", locale);
-            if (adultCondition !=null) {
+            if (adultCondition != null) {
                 queryStr = queryStr + adultCondition;
             }
 

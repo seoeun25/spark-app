@@ -26,8 +26,8 @@ import java.util.Properties;
  * java-out
  * </p>
  * <p>
- * $ spark-submit --class com.lezhin.wasp.similarity.SimilarityScore --master yarn --deploy-mode client \
- * deploy/wasp-app.jar yarn abc ko-KR thrift://azra:9083
+ * $ spark-submit --class com.lezhin.wasp.similarity.ScheduleHistory --master yarn --deploy-mode client \
+ * deploy/wasp-app.jar yarn qa content_similarity content_similarity_0 20180726 thrift://azra:9083
  * </p>
  *
  * @author seoeun
@@ -37,8 +37,14 @@ public class ScheduleHistory {
 
     public static void main(String... args) {
         System.out.println("args.length = " + args.length);
+        for (int i = 0;  i < args.length; i++) {
+            System.out.println("arg " + i + " = " + args[i]);
+        }
         if (ArrayUtils.getLength(args) < 5) {
             System.out.println("Usage: ScheduleHistory <master> <env> <name> <result> <ymd>");
+            System.out.println("Usage: ScheduleHistory yarn production content_similarity " +
+                    "content_similarity_0 20180729");
+
             return;
         }
 

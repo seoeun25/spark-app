@@ -1,35 +1,15 @@
 package com.lezhin.wasp.similarity;
 
-import com.lezhin.wasp.util.Utils;
-
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import lombok.Builder;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
-import org.apache.spark.sql.functions;
-import scala.Tuple2;
 
-import java.io.Serializable;
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
-import static org.apache.spark.sql.functions.col;
-import static org.apache.spark.sql.functions.max;
-import static org.apache.spark.sql.functions.sum;
-import static org.apache.spark.sql.functions.when;
 
 /**
  * * To execute,
@@ -110,45 +90,31 @@ public class CurationUnion {
                     tuple._2()));
             // adult == 0 이면 전연령대상. adult ==1 은 완전판(비성인물 + 성인물 = all)
 
-            Map<String, String> zone = ImmutableMap.of("ko0", "0", "ko1", "1", "ja1", "1", "en1", "1");
-            List<String> zoneNames = ImmutableList.of("ko0", "ko1", "ja1", "en1");
-            String query = String.format("SELECT locale, adult, source_content_id, target_content_id, abscore as " +
+            List<String> zoneNames = ImmutableList.of("ko0", "ko1", "ko2", "ja0", "ja2", "en0", "en2");
+            String query = String.format("SELECT locale, adult_kind, source_content_id, target_content_id, abscore as" +
+                    " " +
                     "similarity, created_at, ymd FROM %s_", "actdb.content_similarity");
             String queryStr1 = "";
             for (int i = 0; i < zoneNames.size(); i++) {
                 queryStr1 += query + zoneNames.get(i);
-                if ( i != zoneNames.size() -1) {
+                if (i != zoneNames.size() - 1) {
                     queryStr1 += " \n union \n";
                 }
             }
 
-
-//            String queryStr1 = String.format(
-//                    "select locale, adult, source_content_id, target_content_id, abscore as similarity, created_at, " +
-//                            "ymd from actdb.content_similarity_ko0\n" +
-//                    "union \n" +
-//                    "select locale, adult, source_content_id, target_content_id, abscore as similarity, created_at, " +
-//                            "ymd from actdb.content_similarity_ko1\n" +
-//                    "union\n" +
-//                    "select locale, adult, source_content_id, target_content_id, abscore as similarity, created_at, " +
-//                            "ymd from actdb.content_similarity_ja1\n" +
-//                    "union \n" +
-//                    "select locale, adult, source_content_id, target_content_id, abscore as similarity, created_at, " +
-//                            "ymd from actdb.content_similarity_en1\n");
-//
-            System.out.println(" -- query : " + queryStr1);
-
+            System.out.println(" -- query : \n" + queryStr1);
 
             Dataset<Row> unionDf = spark.sql(queryStr1);
             System.out.println("-- count_similarity_uion .count = " + unionDf.count());
             saveContentSimilarityUnion(spark, unionDf);
 
-            String query2 = String.format("SELECT locale, adult, set_id as set_order, content_order, content_id, " +
+            String query2 = String.format("SELECT locale, adult_kind, set_id as set_order, content_order, content_id," +
+                    " " +
                     "created_at, ymd FROM %s_", "actdb.content_similarity_set");
             String queryStr2 = "";
             for (int i = 0; i < zoneNames.size(); i++) {
                 queryStr2 += query2 + zoneNames.get(i);
-                if ( i != zoneNames.size() -1) {
+                if (i != zoneNames.size() - 1) {
                     queryStr2 += " \n union \n";
                 }
             }
