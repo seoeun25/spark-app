@@ -100,11 +100,11 @@ public class ScheduleHistory {
                     .result(result)
                     .ymd(Integer.parseInt(ymd))
                     .created_at(Instant.now().toEpochMilli()).build());
-            System.out.println(" --  get(0) = " + list.get(0).toString());
+            System.out.println(" -- start insert");
 
             Dataset<Row> eventDf = spark.createDataFrame(list, ScheduleEvent.class);
             eventDf.write().mode("append").jdbc(conProps.getProperty("url"), "schedule_event", conProps);
-
+            System.out.println(" -- inserted : " + list.get(0).toString());
             spark.stop();
 
         } catch (Exception e) {

@@ -206,7 +206,7 @@ public class SimilarityScore {
         System.out.println(String.format("master = %s, ymd = %s, locale = %s, adultKind = %s, metastore = %s",
                 master, ymd, locale, adultKind, hiveMetastore));
 
-        JavaSparkContext sc = getSparkContext("SimilarityCluster", master);
+        JavaSparkContext sc = getSparkContext("SimilarityScore", master);
 
         try {
 
