@@ -35,6 +35,24 @@ import java.util.Properties;
  */
 public class ScheduleHistory {
 
+    public static void insertHistory(SparkSession spark, String name, String result, String ymd,
+                                     Properties conProps) {
+
+        List<ScheduleEvent> list = ImmutableList.of(ScheduleEvent.builder()
+                .name(name)
+                .result(result)
+                .ymd(Integer.parseInt(ymd))
+                .created_at(Instant.now().toEpochMilli()).build());
+        System.out.println(" --  get(0) = " + list.get(0).toString());
+
+        Dataset<Row> eventDf = spark.createDataFrame(list, ScheduleEvent.class);
+        eventDf.write().mode("append").jdbc(conProps.getProperty("url"), "schedule_event", conProps);
+
+        System.out.println("inserted ");
+
+
+    }
+
     public static void main(String... args) {
         System.out.println("args.length = " + args.length);
         for (int i = 0;  i < args.length; i++) {
