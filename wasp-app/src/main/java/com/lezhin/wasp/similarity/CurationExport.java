@@ -1,9 +1,7 @@
 package com.lezhin.wasp.similarity;
 
-import com.lezhin.wasp.model.ScheduleEvent;
 import com.lezhin.wasp.util.DatabaseProp;
 
-import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -50,6 +48,7 @@ public class CurationExport {
         Dataset<Row> historyDf = spark.read().jdbc(conProps.get("url").toString(),
                 query,
                 conProps);
+        System.out.println("---- historyDf.size = " + historyDf.count());
 
         List<Row> history = historyDf.orderBy(functions.desc("created_at")).collectAsList();
         if (history.size() == 0) {
@@ -61,6 +60,8 @@ public class CurationExport {
             String set = result.substring(result.lastIndexOf("_") + 1);
             setNumber = Integer.parseInt(set);
         }
+        setNumber = setNumber + 1;
+        setNumber = setNumber % 2;
 
         System.out.println(String.format("  End getLatest set, %s, setNumber=%s", conProps.get("url"), setNumber));
         return setNumber;
@@ -71,7 +72,9 @@ public class CurationExport {
 
         System.out.println(String.format("  Start export to %s, %s", conProps.get("url"), tableName));
 
-        exportDf.write().mode(SaveMode.Overwrite).option("truncate", true)
+        exportDf.write().jdbc(conProps.getProperty(""), tableName, conProps);
+
+        exportDf.write().option("truncate", "true").mode(SaveMode.Append)
                 .jdbc(conProps.getProperty("url"), tableName, conProps);
 
         System.out.println(String.format("  End export to %s, %s", conProps.get("url"), tableName));
@@ -83,28 +86,19 @@ public class CurationExport {
 
         System.out.println(String.format("Start scheduleHistory. %s", conProps.get("url")));
 
-        long timestamp = Instant.now().toEpochMilli();
-        List<ScheduleEvent> list = ImmutableList.of(ScheduleEvent.builder()
-                .name(name)
-                .result(result)
-                .ymd(Integer.parseInt(ymd))
-                .created_at(timestamp).build());
-        System.out.println(" --  get(0) = " + list.get(0).toString());
-
-        Dataset<Row> eventDf = spark.createDataFrame(list, ScheduleEvent.class);
-        eventDf.write().mode("append").jdbc(conProps.getProperty("url"), "schedule_event", conProps);
-
-        System.out.println(String.format("scheduleHistory. %s, name=%s, result=%s, ymd=%s, created_at=%s",
-                conProps.get("url"), name, result, ymd, timestamp));
+        ScheduleHistory.insertHistory(spark, name, result, ymd, conProps);
 
     }
 
 
-    public static void main(String... args) {
+    public static void main(String... args) throws Exception {
         System.out.println("args.length = " + args.length);
-        if (ArrayUtils.getLength(args) < 4) {
-            System.out.println("Usage: CurationExport <master> <env> <ymd> <setNumber>");
-            System.out.println("Usage: CurationExport yarn production 20180729 0");
+        for (int i = 0; i < args.length; i++) {
+            System.out.println("arg " + i + " : " + args[i]);
+        }
+        if (ArrayUtils.getLength(args) < 3) {
+            System.out.println("Usage: CurationExport <master> <env> <ymd>");
+            System.out.println("Usage: CurationExport yarn production 20180729");
 
             return;
         }
@@ -155,7 +149,7 @@ public class CurationExport {
             System.out.println(" ---- setNumber = " + setNumber);
 
             String querySimilarity = String.format("SELECT locale, adult_kind, source_content_id, target_content_id, " +
-                    "similarity, created_at, ymd FROM actdb" + ".content_similarity_union ");
+                    "similarity, created_at, ymd FROM actdb.content_similarity_union ");
 
             System.out.println(" -- query(hive) : " + querySimilarity);
             Dataset<Row> similarityDf = spark.sql(querySimilarity);
@@ -165,6 +159,7 @@ public class CurationExport {
             exportToMysql(spark, serviceConn, similarityDf, "content_similarity_" + setNumber);
             scheduleHistory(spark, serviceConn, "content_similarity", "content_similarity_" + setNumber, ymd);
 
+            /**
             String querySet = String.format("SELECT locale, adult_kind, set_order, content_order, " +
                     "content_id, created_at, ymd FROM actdb" + ".content_similarity_set_union ");
 
@@ -176,12 +171,15 @@ public class CurationExport {
             exportToMysql(spark, serviceConn, setDf, "content_similarity_set_" + setNumber);
             scheduleHistory(spark, serviceConn, "content_similarity_set", "content_similarity_set_" + setNumber, ymd);
 
+             **/
             System.out.println("---- DONE !!!");
 
             spark.stop();
 
         } catch (Exception e) {
+            System.out.println("---- error ----");
             e.printStackTrace();
+            throw e;
         } finally {
             sc.stop();
         }
