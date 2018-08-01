@@ -455,11 +455,11 @@ public class SimilarityCluster {
             Arrays.stream(sc.getConf().getAll()).forEach(tuple -> System.out.println("conf : " + tuple._1() + " = " +
                     tuple._2()));
 
-//            String queryStr = String.format("SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity " +
+//            String queryStr = String.format("SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_agg " +
 //                    "WHERE " +
 //                    "locale='%s'", locale);
 
-            String queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity WHERE" +
+            String queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_agg WHERE" +
                     " locale='ko-KR' and  content_id IN (1, 2, 3) ";
 
             System.out.println(" -- query : " + queryStr);

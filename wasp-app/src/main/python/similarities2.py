@@ -12,12 +12,12 @@ from pyspark.sql import functions
 
 def dataLoad(spark, locale="ko-KR"):
     """
-    queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity WHERE locale='{}'" \
+    queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_agg WHERE locale='{}'" \
                "".format(locale)
     """
 
     #"""
-    queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity WHERE locale='{}'" \
+    queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_agg WHERE locale='{}'" \
                " and " \
                "content_id IN (1, 2, 3) ".format(locale)
     #"""
@@ -25,7 +25,7 @@ def dataLoad(spark, locale="ko-KR"):
     print(queryStr)
     df_load = spark.sql(queryStr)
     # df_load = spark.sql('select user_id, content_id, locale, adult, purchase_cnt from
-    # actdb.purchase_count_similarity limit 10')
+    # actdb.purchase_count_agg limit 10')
     # df_load.show()
 
     print("----- {}".format(df_load.head(5)))

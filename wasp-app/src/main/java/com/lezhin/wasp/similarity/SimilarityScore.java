@@ -184,7 +184,7 @@ public class SimilarityScore {
 
     }
 
-    public static void main(String... args) {
+    public static void  main(String... args) {
         System.out.println("args.length = " + args.length);
         if (ArrayUtils.getLength(args) < 4) {
             System.out.println("Usage: SimilarityScore <master> <ymd> <locale> <adult_kind");
@@ -227,7 +227,7 @@ public class SimilarityScore {
             if (!"2".equals(adultKind)) {
                 adultCondition = "and adult = " + adultKind;
             }
-            String queryStr = String.format("SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity " +
+            String queryStr = String.format("SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_agg " +
                     "WHERE locale='%s' ", locale);
             if (adultCondition != null) {
                 queryStr = queryStr + adultCondition;

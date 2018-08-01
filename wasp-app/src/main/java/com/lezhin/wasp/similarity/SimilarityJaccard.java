@@ -287,7 +287,7 @@ public class SimilarityJaccard {
                 adultCondition = "and adult = " + adultKind;
             }
             String queryStr1 = String.format("SELECT user_id, content_id, purchase_cnt FROM actdb" +
-                    ".purchase_count_similarity WHERE locale='%s' ", locale);
+                    ".purchase_count_agg WHERE locale='%s' ", locale);
             if (adultCondition != null) {
                 queryStr1 = queryStr1 + adultCondition;
             }
@@ -299,7 +299,7 @@ public class SimilarityJaccard {
 
 
             Dataset<Row> dfLoad = spark.sql(queryStr1).where(col("purchase_cnt").isNotNull());
-            System.out.println("-- purchase_count_similarity .count = " + dfLoad.count());
+            System.out.println("-- purchase_count_agg .count = " + dfLoad.count());
 
             Dataset infoDf = infoDic(dfLoad);
 

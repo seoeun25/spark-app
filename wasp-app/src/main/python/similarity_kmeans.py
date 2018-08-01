@@ -19,10 +19,10 @@ from pyspark.sql.types import *
 # sudo apt-get install python3-pymysql
 # sudo pip3 install pyhive
 # sudo pip install sklearn
-# spark-submit wasp-app/src/main/python/similarity_cluster.py azra brook01.table
+# spark-submit wasp-app/src/main/python/similarity_kmeans.py [ymd] [locale] [adult_kind] [metastore]
 
 def dataLoad(spark, locale, adult_kind):
-    #queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_similarity WHERE locale='{}'" \
+    #queryStr = "SELECT user_id, content_id, purchase_cnt FROM actdb.purchase_count_agg WHERE locale='{}'" \
     #           "".format(locale)
 
     queryStr = "SELECT source_content_id, target_content_id, abscore " \
@@ -32,7 +32,7 @@ def dataLoad(spark, locale, adult_kind):
     print("   ===  queryStr {} ".format(queryStr))
     df_load = spark.sql(queryStr)
     # df_load = spark.sql('select user_id, content_id, locale, adult_kind, purchase_cnt from
-    # actdb.purchase_count_similarity limit 10')
+    # actdb.purchase_count_agg limit 10')
     # df_load.show()
 
     print("----- {}".format(df_load.head(5)))
