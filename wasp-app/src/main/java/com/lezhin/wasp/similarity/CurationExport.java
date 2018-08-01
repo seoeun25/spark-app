@@ -35,46 +35,14 @@ import java.util.Properties;
  */
 public class CurationExport {
 
-    public static int queryHistory(SparkSession spark, Properties conProps) {
-
-        int setNumber;
-
-        long lastTime = Instant.now().toEpochMilli() - (1000 * 60 * 60 * 24) * 5;
-        String query = "(select name, result, ymd, created_at from schedule_event where created_at >= " + lastTime +
-                ") history_alias";
-
-        System.out.println(String.format("  Start getLatest set, %s, %s", conProps.get("url"), query));
-
-        Dataset<Row> historyDf = spark.read().jdbc(conProps.get("url").toString(),
-                query,
-                conProps);
-        System.out.println("---- historyDf.size = " + historyDf.count());
-
-        List<Row> history = historyDf.orderBy(functions.desc("created_at")).collectAsList();
-        if (history.size() == 0) {
-            setNumber = 0;
-        } else {
-            Row lastestHistory = history.get(0);
-            String result = lastestHistory.getString(1);
-            System.out.println("-- latestHistory " + lastestHistory.toString());
-            String set = result.substring(result.lastIndexOf("_") + 1);
-            setNumber = Integer.parseInt(set);
-        }
-        setNumber = setNumber + 1;
-        setNumber = setNumber % 2;
-
-        System.out.println(String.format("  End getLatest set, %s, setNumber=%s", conProps.get("url"), setNumber));
-        return setNumber;
-
-    }
-
     public static void exportToMysql(SparkSession spark, Properties conProps, Dataset<Row> exportDf, String tableName) {
 
         System.out.println(String.format("  Start export to %s, %s", conProps.get("url"), tableName));
 
         exportDf.write().jdbc(conProps.getProperty(""), tableName, conProps);
 
-        exportDf.write().option("truncate", "true").mode(SaveMode.Append)
+        // 이미 truncate 된 테이블에 append
+        exportDf.write().mode(SaveMode.Append)
                 .jdbc(conProps.getProperty("url"), tableName, conProps);
 
         System.out.println(String.format("  End export to %s, %s", conProps.get("url"), tableName));
@@ -145,9 +113,10 @@ public class CurationExport {
             serviceConn.put("useServerPrepStmts", "false");
             serviceConn.put("rewriteBatchedStatements", "true");
 
-            int setNumber = queryHistory(spark, serviceConn);
+            int setNumber = DecisionSet.queryHistory(spark, serviceConn);
             System.out.println(" ---- setNumber = " + setNumber);
 
+            // content_similarity_union
             String querySimilarity = String.format("SELECT locale, adult_kind, source_content_id, target_content_id, " +
                     "similarity, created_at, ymd FROM actdb.content_similarity_union ");
 
@@ -159,7 +128,7 @@ public class CurationExport {
             exportToMysql(spark, serviceConn, similarityDf, "content_similarity_" + setNumber);
             scheduleHistory(spark, serviceConn, "content_similarity", "content_similarity_" + setNumber, ymd);
 
-            /**
+            // content_similarity_set_union
             String querySet = String.format("SELECT locale, adult_kind, set_order, content_order, " +
                     "content_id, created_at, ymd FROM actdb" + ".content_similarity_set_union ");
 
@@ -171,7 +140,6 @@ public class CurationExport {
             exportToMysql(spark, serviceConn, setDf, "content_similarity_set_" + setNumber);
             scheduleHistory(spark, serviceConn, "content_similarity_set", "content_similarity_set_" + setNumber, ymd);
 
-             **/
             System.out.println("---- DONE !!!");
 
             spark.stop();
