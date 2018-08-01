@@ -27,7 +27,7 @@ import java.util.Properties;
  * </p>
  * <p>
  * $ spark-submit --class com.lezhin.wasp.similarity.CurationExport --master yarn --deploy-mode client \
- * deploy/wasp-app.jar yarn production 20180729 0 thrift://azra:9083
+ * deploy/wasp-app.jar yarn production 20180729 thrift://azra:9083
  * </p>
  *
  * @author seoeun
@@ -38,8 +38,6 @@ public class CurationExport {
     public static void exportToMysql(SparkSession spark, Properties conProps, Dataset<Row> exportDf, String tableName) {
 
         System.out.println(String.format("  Start export to %s, %s", conProps.get("url"), tableName));
-
-        exportDf.write().jdbc(conProps.getProperty(""), tableName, conProps);
 
         // 이미 truncate 된 테이블에 append
         exportDf.write().mode(SaveMode.Append)

@@ -13,7 +13,7 @@ public enum  DatabaseProp {
     MIRROR("mirror", "jdbc:mysql://127.0.0.1:3309/lezhincomics_mirror", "lezhin", "eoqkrfpwls$"),
     QA("qa", "jdbc:mysql://127.0.0.1:3309/lezhincomics_qa", "lezhin", "eoqkrfpwls$"),
     BETA("beta", "jdbc:mysql://127.0.0.1:3309/lezhincomics", "lezhin", "eoqkrfpwls$"),
-    PRD_LOG01("prd_log01", "jdbc:mysql://127.0.0.1:3309/lezhincomics", "lezhin", "eoqkrfpwls$"),
+    PRD_LOG01("prd_log01", "jdbc:mysql://127.0.0.1:3308/lezhincomics", "lezhin", "eoqkrfpwls$"),
     TEST("test", "jdbc:mysql://127.0.0.1:3306/lezhincomics", "root", ""),
     ;
 
